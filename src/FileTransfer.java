@@ -5,14 +5,11 @@ import java.util.Scanner;
 
 public class FileTransfer {
 
-    static int MAX_BYTES = 1000;
-    //2^7 tamanho max por ser multiplo
-
-
-    public void enviarArquivo(OutputStream saida, String pathArquivo){
+    public void enviarArquivo(OutputStream saida, String pathArquivo, int tamanhoPacote){
         try {
             FileInputStream streamArquivo;
             File file;
+            int MAX_BYTES = tamanhoPacote;
 
             try {
                 file = new File(pathArquivo);
@@ -22,13 +19,13 @@ public class FileTransfer {
                 return;
             }
 
+            new PrintStream(saida).println("!enviar");
+
             int quantidadeDePacotes = (int) Math.ceil(file.length()/(double) (MAX_BYTES-4));
 
             System.out.printf("Tamanho do arquivo %d, Tamanho de pacotes calculado %d", file.length(), quantidadeDePacotes);
 
             new PrintStream(saida).println(file.getName() + "?"+ MAX_BYTES + "?" + quantidadeDePacotes);
-
-            Thread.sleep(1000);
 
             boolean terminou = false;
             int indexPacote = 0;
@@ -108,7 +105,7 @@ public class FileTransfer {
                     terminou = true;
                 }
 
-                DecimalFormat df = new DecimalFormat("0.0");
+                DecimalFormat df = new DecimalFormat("0");
                 String percentAtual = df.format(((double)indexPacote/(double) quantidadePacotes)*100d);
                 if(!percent.equals(percentAtual)){
                     percent = percentAtual;

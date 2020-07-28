@@ -24,12 +24,12 @@ public class TecladoHandler implements Runnable {
                     saida.println("!EndConnection!");
                     cliente.close();
                     break;
-                }else if(in.equalsIgnoreCase("!enviar")){
-                    System.out.println("[Insira o path do arquivo]");
-                    String nome = teclado.nextLine();
-                    saida.println("!enviar");
+                }else if(in.startsWith("!enviar")){
+                    String[] data = in.split(" ");
+                    String nome = data[1];
+                    int tamanhoPacote = Integer.parseInt(data[2]);
                     FileTransfer ft = new FileTransfer();
-                    ft.enviarArquivo(this.cliente.getOutputStream(), nome);
+                    ft.enviarArquivo(this.cliente.getOutputStream(), nome, tamanhoPacote);
                     continue;
                 }
                 saida.println(in);
