@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="Redes:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/Redes_jar</output-path>
+    <root id="archive" name="Redes.jar">
+      <element id="module-output" name="Redes" />
+    </root>
+  </artifact>
+</component>

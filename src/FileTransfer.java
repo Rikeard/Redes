@@ -1,5 +1,10 @@
 import java.io.*;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.text.DecimalFormat;
 import java.util.Scanner;
 
@@ -21,16 +26,14 @@ public class FileTransfer {
 
             new PrintStream(saida).println("!enviar");
 
-            int quantidadeDePacotes = (int) Math.ceil(file.length()/(double) (MAX_BYTES-4));
-
-            System.out.printf("Tamanho do arquivo %d, Tamanho de pacotes calculado %d", file.length(), quantidadeDePacotes);
-
-            new PrintStream(saida).println(file.getName() + "?"+ MAX_BYTES + "?" + quantidadeDePacotes);
+            new PrintStream(saida).println(file.getName() + "?"+ MAX_BYTES + "?" + file.length() + "?" + getSHA1(pathArquivo));
 
             boolean terminou = false;
             int indexPacote = 0;
 
-            String percent = "";
+            String resp = "";
+            DecimalFormat df = new DecimalFormat("0");
+            long tamanhoEnviado = 0;
 
             while (!terminou) {
 
@@ -40,17 +43,18 @@ public class FileTransfer {
                 int read = streamArquivo.readNBytes(bufferRead,0,MAX_BYTES-4);
                 buffer.put(bufferRead);
 
+                tamanhoEnviado += read;
                 if(read < MAX_BYTES-4){
                     terminou = true;
-                }else{
-                    indexPacote++;
                 }
 
-                DecimalFormat df = new DecimalFormat("0.0");
-                String percentAtual = df.format(((double)indexPacote/(double) quantidadeDePacotes)*100d);
-                if(!percent.equals(percentAtual)){
-                    percent = percentAtual;
-                    System.out.println(percent + "% [" + indexPacote + "]");
+                indexPacote++;
+
+
+                String np = "[" + df.format((double) tamanhoEnviado/(double) file.length()*100d) + "%]";
+                if(!np.equals(resp)){
+                    System.out.println(np);
+                    resp = np;
                 }
 
                 saida.write(buffer.array());
@@ -78,10 +82,11 @@ public class FileTransfer {
             String[] header = sc.nextLine().split("\\?");
             String nome = header[0];
             int tamanhoPacote = Integer.parseInt(header[1]);
-            int quantidadePacotes = Integer.parseInt(header[2]);
+            long tamanhoArquivo = Long.parseLong(header[2]);
+            String hash = header[3];
 
             try {
-                streamArquivo = new FileOutputStream("/home/rikeard/Desktop/" + nome);
+                streamArquivo = new FileOutputStream(nome);
             } catch (Exception e) {
                 System.out.println("Arquivo não encontrado");
                 return;
@@ -90,6 +95,10 @@ public class FileTransfer {
 
             boolean terminou = false;
             int indexPacote = 0;
+            long tamanhoRecebido = 0;
+
+            String resp = "";
+            DecimalFormat df = new DecimalFormat("0");
 
             while (!terminou) {
 
@@ -97,22 +106,33 @@ public class FileTransfer {
                 int read = entrada.readNBytes(bufferRead, 0, tamanhoPacote);
                 int indexRecebido = ByteBuffer.wrap(bufferRead, 0, 4).getInt();
 
-                streamArquivo.write(bufferRead, 4, tamanhoPacote-4);
-                indexPacote++;
-
-
-                if(indexPacote >= quantidadePacotes){
+                long totalQueFalta = tamanhoArquivo-tamanhoRecebido;
+                if(totalQueFalta >= tamanhoPacote) {
+                    streamArquivo.write(bufferRead, 4, tamanhoPacote - 4);
+                    tamanhoRecebido += tamanhoPacote-4;
+                }else {
+                    streamArquivo.write(bufferRead, 4, (int) (totalQueFalta));
+                    tamanhoRecebido += totalQueFalta;
                     terminou = true;
                 }
 
-                DecimalFormat df = new DecimalFormat("0");
-                String percentAtual = df.format(((double)indexPacote/(double) quantidadePacotes)*100d);
-                if(!percent.equals(percentAtual)){
-                    percent = percentAtual;
-                    System.out.println(percent + "% [" + indexRecebido + "]");
+                indexPacote++;
 
+                String np = "[" + df.format((double) tamanhoRecebido/(double) tamanhoArquivo*100d) + "%]";
+                if(!np.equals(resp)){
+                    System.out.println(np);
+                    resp = np;
                 }
 
+
+            }
+
+            String calcHash = getSHA1(nome);
+            if(!hash.equals(calcHash)){
+                System.out.println("Transferência falhou");
+                return;
+            }else{
+                System.out.println("Hash verdadeira " + calcHash );
             }
 
             double tempoSegundos = ((double) System.currentTimeMillis()- (double) tempoInicial)/1000d;
@@ -120,7 +140,7 @@ public class FileTransfer {
             DecimalFormat nEnum = new DecimalFormat("#");
             nEnum.setMaximumFractionDigits(3);
             System.out.println("Arquivo recebido com sucesso! | Tamanho do arquivo (" +
-                    new File("/home/rikeard/Desktop/" + nome).length() +
+                    new File(nome).length() +
                     ") | Pacotes recebidos (" + (indexPacote-1) + ") | Velocidade " +  nEnum.format(((double) velocidade*8d)) + " bits/s");
 
 
@@ -128,5 +148,17 @@ public class FileTransfer {
             e.printStackTrace();
             System.exit(0);
         }
+    }
+
+
+    public String getSHA1(String arquivo) throws IOException, NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("SHA-1");
+        md.update(Files.readAllBytes(Paths.get(arquivo)));
+
+        StringBuilder resultado = new StringBuilder();
+        for(byte b : md.digest()){
+            resultado.append(String.format("%02x",b));
+        }
+        return resultado.toString();
     }
 }
